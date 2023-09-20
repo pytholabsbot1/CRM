@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>{{ lead.name }}</h1>
+<br/>
+<!-- Edit Mode Toggle -->
+{% if edit_mode %}
+<a href="{% url 'lead_detail' lead.id %}" class="btn btn-secondary mb-3">Cancel Edit</a>
+{% else %}
+<a href="{% url 'lead_detail' lead.id %}?edit=true" class="btn btn-primary mb-3">Edit</a>
+{% endif %}
+
+<!-- Lead Details -->
+{% if edit_mode %}
+<form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="label">Label:</label>
+        {{ form.label }}
+    </div>
+    <div class="form-group">
+        <label for="notes">Notes:</label>
+        {{ form.notes }}
+    </div>
+    <button type="submit" class="btn btn-success">Update</button>
+</form>
+{% else %}
+<p><strong>Label:</strong> {{ lead.label.name }}</p>
+<p><strong>Notes:</strong> {{ lead.notes }}</p>
+{% endif %}
+
+<hr/>
+<br/>
+<h2>Activity Timeline</h2>
+<br/>
+<!-- Add Activity Button -->
+<button type="button" class="btn btn-success mb-3" data-toggle="modal" data-target="#addActivityModal">Add Activity</button>
+
+{% for activity in activities %}
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">{{ activity.name }}</h5>
+        <p class="card-text">{{ activity.notes }}</p>
+        <p class="card-text"><small class="text-muted">{{ activity.date_time }}</small></p>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Add Activity Modal -->
+<div class="modal fade" id="addActivityModal" tabindex="-1" role="dialog" aria-labelledby="addActivityModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addActivityModalLabel">Add Activity</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form method="post" action="{% url 'add_activity' lead.id %}">
+            {% csrf_token %}
+            {{ activity_form.as_p }}
+            <button type="submit" class="btn btn-primary">Add</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
