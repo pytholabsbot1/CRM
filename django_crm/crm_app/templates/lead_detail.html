@@ -2,7 +2,31 @@
 
 {% block content %}
 <h1>{{ lead.name }}</h1>
+
+<!-- Lead Details Table -->
+<table class="table table-bordered">
+  <tbody>
+      <tr>
+          <th>Mobile</th>
+          <td>{{ lead.mobile }}</td>
+      </tr>
+      <tr>
+          <th>Source</th>
+          <td>{{ lead.source }}</td>
+      </tr>
+      <tr>
+          <th>Occupation</th>
+          <td>{{ lead.occupation }}</td>
+      </tr>
+      <tr>
+          <th>Location</th>
+          <td>{{ lead.location }}</td>
+      </tr>
+      <!-- ... other fields ... -->
+  </tbody>
+</table>
 <br/>
+
 <!-- Edit Mode Toggle -->
 {% if edit_mode %}
 <a href="{% url 'lead_detail' lead.id %}" class="btn btn-secondary mb-3">Cancel Edit</a>
@@ -46,7 +70,6 @@
 </div>
 {% endfor %}
 
-<!-- Add Activity Modal -->
 <div class="modal fade" id="addActivityModal" tabindex="-1" role="dialog" aria-labelledby="addActivityModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
@@ -57,13 +80,128 @@
         </button>
       </div>
       <div class="modal-body">
-        <form method="post" action="{% url 'add_activity' lead.id %}">
+        <form method="post">
             {% csrf_token %}
-            {{ activity_form.as_p }}
+            {{ activity_form.name.label_tag }} {{ activity_form.name }} <br/>
+            {{ activity_form.notes.label_tag }} {{ activity_form.notes }}<br/>
+            <div class="form-group">
+                <label for="{{ activity_form.schedule.id_for_label }}">Schedule</label>
+                <div class="input-group date" id="datetimepicker1" data-target-input="nearest">
+                    {{ activity_form.schedule }}
+                    <div class="input-group-append" data-target="#datetimepicker1" data-toggle="datetimepicker">
+                        <div class="input-group-text"><i class="fa fa-calendar"></i></div>
+                    </div>
+                </div>
+            </div>
+            <button type="button" id="aiAssistBtn" onclick="aiAssist()">AI Assist</button>
             <button type="submit" class="btn btn-primary">Add</button>
         </form>
       </div>
     </div>
   </div>
 </div>
+
+<!-- JS for the datetime picker -->
+<script type="text/javascript">
+    $('#datetimepicker1').datetimepicker({
+        format: 'YYYY-MM-DD HH:mm:ss'
+    });
+
+
+    var projectInfoCondensed = `Discover Airport Enclave in Western Odisha by Veer Surendra Sai Airport, Jharsuguda. Offering 1-5 BHK Flats & Duplex Villas for a luxury lifestyle. 
+        Features:
+        - 10-acre site by Eco Park & IB River.
+        - Amenities: Club House, Gym, Pool, Sports Courts, Nature Park, sewage plant, mini golf & more.
+        - Flats: 1 BHK (25L, 560 sqft), 2 BHK (48L, 1120 sqft), 3 BHK (72L, 1820 sqft).
+        - Villas: 3.5 BHK (from 76L, 1740 sqft), 4.5 BHK (from 1.4Cr, 3300 sqft).
+
+        Details:
+        - 1-3 BHK flats fully furnished.
+        - New 3.5 BHK Duplex Villas.
+        - 9-story flats with parking.
+        - 10% booking amount. Payment details in [Brochure](https://ascentbuildhome.com/media/Brochure.pdf).
+        - Multiple payment options. Only ready units available. 5 BHK sold out.
+        - 3D tour: airportenclave.com. Contact: +918249544034, ascentbuildhome@gmail.com.
+        - Address: Unit.8, Malimunda Road, Jharsuguda, Odisha 768204. [Map](https://goo.gl/maps/VhmothuaD9mFFAHe6).
+        - By Ascent Buildhome, managed by Mr. Murshid Ahmed. Bank financing available.
+
+        Visuals:
+        - [1BHK](https://www.youtube.com/watch?v=CmaCS6E7m8M)
+        - [2BHK](https://www.youtube.com/watch?v=Ph7tDDqd0yM)
+        - [3BHK](https://www.youtube.com/watch?v=WygCh_nNkyc)
+        - [3.5BHK Duplex](https://youtu.be/Uk2ML_HTgCM)
+        - [4.5BHK Duplex](https://youtu.be/7nTKirMskvY)
+        - [Drone Shots](https://youtu.be/s7NyIPy8dO0)
+
+        Instructions:
+        1. Never add placeholders in response
+        2. Based on above format very short & polite response for user inputs`; 
+
+
+
+        async function generateResponse(inputStr) {
+            // Split the input
+            const [videoAsset, message, brochureFlag] = inputStr.split('|').map(item => item.trim());
+
+            // Match the video asset
+            const availableAssets = ['1BHK', '2BHK', '3BHK', '3.5BHK', '4.5BHK', 'Drone'];
+            const matchedAsset = availableAssets.includes(videoAsset.toUpperCase()) ? videoAsset.toUpperCase() : null;
+
+            // Send message to OpenAI API
+            const requestBody = {
+                model: "gpt-3.5-turbo",
+                messages: [{ role: "system", content: `${projectInfoCondensed}` }, { role: "user", content: `${message}` }],
+                temperature: 0.7
+            };
+
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer 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',             
+        'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const responseData = await response.json();
+            const formattedMessage = responseData.choices[0].message.content.trim();
+
+            // Format the output
+            const output = {
+                video: matchedAsset,
+                msg: formattedMessage,
+                brochure: brochureFlag === 'true'
+            };
+
+            return output;
+    }
+
+
+      async function aiAssist() {
+          const notesField = document.getElementById('id_notes');  // Use the existing ID
+          const aiAssistBtn = document.getElementById('aiAssistBtn');
+
+          // Show loader on the AI Assist button
+          aiAssistBtn.innerHTML = '<div class="loader"></div>';  // Add your loader styles or HTML here
+          aiAssistBtn.disabled = true;
+
+          try {
+              const output = await generateResponse(notesField.value);
+              notesField.value = JSON.stringify(output);    // Replace the notes textfield with the AI-generated message
+          } catch (error) {
+              console.error('Error with AI Assist:', error);
+              alert('Error generating AI response. Please try again.');
+          }
+
+          // Restore the AI Assist button
+          aiAssistBtn.innerHTML = 'AI Assist';
+          aiAssistBtn.disabled = false;
+      }
+
+
+
+</script>
+
+
+
 {% endblock %}

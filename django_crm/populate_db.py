@@ -1,47 +1,39 @@
 import os
 import django
-import random
-from faker import Faker
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'crm_project.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'crm_project.settings')  # Replace 'your_project_name' with your actual project name
 django.setup()
 
-from crm_app.models import Lead, Label, Activity, ActivityName
+from crm_app.models import Lead, Label
 
-fake = Faker()
+def populate_leads_from_tsv(file_path):
+    # Ensure the "warm" label exists
+    label, _ = Label.objects.get_or_create(name="warm")
 
-# Create some sample labels
-labels = ['Hot', 'Cold', 'Warm', 'Interested', 'Not Interested']
-for label_name in labels:
-    Label.objects.get_or_create(name=label_name)
+    with open(file_path, 'r') as file:
+        for line in file:
+            try:
+            # Split the line into its components
+                lead_date, source, lead_name, mobile, loc, occupation, notes = line.strip().split('\t')
 
-# Create some sample activity names
-activity_names = ['Call', 'Email', 'Meeting', 'Follow-up', 'Demo']
-for activity_name in activity_names:
-    ActivityName.objects.get_or_create(name=activity_name)
+            # Create the lead
+            
+                lead = Lead(
+                    date=lead_date,
+                    source=source,
+                    name=lead_name,
+                    mobile=mobile,
+                    location=loc,
+                    occupation=occupation,
+                    notes=notes,
+                    label=label
+                )
+                lead.save()
+            except Exception as e:
+                if("UNIQUE" not in str(e)):
+                    print(e , line)
 
-# Get all created labels and activity names
-all_labels = Label.objects.all()
-all_activity_names = ActivityName.objects.all()
-
-# Populate 10 random leads and associated activities
-for _ in range(1000):
-    lead = Lead(
-        name=fake.name(),
-        mobile=fake.phone_number(),
-        email=fake.email(),
-        source=fake.company(),
-        notes=fake.text(),
-        label=random.choice(all_labels)
-    )
-    lead.save()
-
-    # For each lead, create 2-5 random activities
-    for _ in range(random.randint(2, 5)):
-        Activity(
-            name=random.choice(all_activity_names),
-            notes=fake.text(),
-            lead=lead
-        ).save()
-
-print("Sample data populated!")
+if __name__ == "__main__":
+    file_path = input("Enter the path to the TSV file: ")
+    populate_leads_from_tsv(file_path)
+    print("Data populated successfully!")

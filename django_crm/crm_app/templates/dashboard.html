@@ -8,6 +8,16 @@
             <div class="card mb-4">
                 <div class="card-body">
                     <h5 class="card-title">Total Leads: {{ total_leads }}</h5>
+                    <br/>
+                    <h5 class="card-title">Client IP</h5>
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="{{ ip_form.ip_address.id_for_label }}">IP Address:</label>
+                            {{ ip_form.ip_address }}
+                        </div>
+                        <button type="submit" class="btn btn-primary">Update IP</button>
+                    </form>
                 </div>
             </div>
 
@@ -16,26 +26,59 @@
                 <thead>
                     <tr>
                         <th>Date</th>
+                        <th>Source</th>
                         <th>Name</th>
                         <th>Mobile</th>
-                        <th>Source</th>
+                        <th>Occupation</th>
+                        <th>Location</th>
                         <th>Label</th>
                         <th>Last Activity</th>
+                        <th>Action</th>
                     </tr>
+            
                 </thead>
                 <tbody>
                     {% for lead in leads %}
                     <tr>
-                        <td>{{ lead.date }}</td>
-                        <td><a href="{% url 'lead_detail' lead.id %}">{{ lead.name }}</a></td>
-                        <td>{{ lead.mobile }}</td>
+                        <td>{{ lead.date|date:"Y-m-d" }}</td>
                         <td>{{ lead.source }}</td>
-                        <td>{{ lead.label.name }}</td>
-                        <td>{% if lead.activity_set.last %}{{ lead.activity_set.last.name.name }}{% endif %}</td>
+                        <td><a href="{% url 'lead_detail' lead.id %}" target="_blank">{{ lead.name }}</a></td>
+                        <td>{{ lead.mobile }}</td>
+                        <td>{{ lead.occupation }}</td>
+                        <td>{{ lead.location }}</td>
+                        <td>{{ lead.label }}</td>
+                        <td>{% if lead.activity_set.last %}{{ lead.activity_set.last }}{% else %}-{% endif %}</td>
+
+                         <td>
+                            <button class="btn btn-primary call-button" data-id="{{ lead.id }}" data-number="{{ lead.mobile }}" data-toggle="modal" data-target="#callModal">Call</button>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+
+            <!-- Call Modal -->
+            <div class="modal fade" id="callModal" tabindex="-1" role="dialog" aria-labelledby="callModalLabel" aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="callModalLabel">Initiating Call</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="d-flex justify-content-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="sr-only">Loading...</span>
+                                </div>
+                            </div>
+                            <div id="callResponse" class="mt-3"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
 
             <!-- Pagination Controls -->
             <nav aria-label="Page navigation">
@@ -83,9 +126,59 @@
 <script>
     $(document).ready( function () {
         $('#leadsTable').DataTable({
-            "pageLength": 50
+            destroy: true,
+            "pageLength": 50,
+
+        });
+
+        $('tbody').on('click', '.call-button', function() {
+            const number = $(this).data('number');
+            const clientIP = "{{ client_ip.ip_address }}";  // Assuming you pass the client IP to the template
+            const leadId = $(this).data('id');
+
+            // Clear any previous response
+            $('#callResponse').text('');
+
+            console.log(`http://${clientIP}:5000/call`);
+            // Make the POST request to initiate the call
+            $.ajax({
+                url: `http://${clientIP}:5000/call`,
+                method: 'POST',
+                data: JSON.stringify({ number: number }),
+                contentType: 'application/json',
+                success: function(response) {
+                    $('#callResponse').text(response.message);
+                
+                // Add activity to the lead on successful call request
+                $.ajax({
+                    url: `/add_call_activity/${leadId}/`,  // Use lead's ID instead of mobile number
+                    method: 'POST',
+                    data: JSON.stringify({ name: 'Call', notes: 'Call made using client app' }),
+                    contentType: 'application/json',
+                    success: function(response) {
+                        console.log(response.message);  // Log the response for debugging
+                    },
+                    error: function(error) {
+                        console.error(error.responseJSON.error);  // Log the error for debugging
+                    }
+                });
+
+                },
+                
+                error: function(error) {
+                    let errorMessage = 'An error occurred while initiating the call.';
+                    if (error.responseJSON && error.responseJSON.error) {
+                        errorMessage = error.responseJSON.error;
+                    } else if (error.statusText) {
+                        errorMessage += ' (' + error.statusText + ')';
+                    }
+                    $('#callResponse').text(errorMessage);
+                }
+                
+            });
         });
     });
 </script>
 {% endblock %}
 {% endblock %}
+
